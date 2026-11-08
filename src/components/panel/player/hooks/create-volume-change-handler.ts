@@ -41,7 +41,10 @@ export function createVolumeChangeHandler(deps: VolumeChangeDeps) {
       const volumeSettling = isVolumeSettling(isMediaReadyRef)
       // Provider/HTML default is volume=1 and props are queued until canplay.
       // Re-assert preference so the UI does not stick at 100% across source changes.
+      // Never while muted: Vidstack unmutes on any volume write > 0, so
+      // re-asserting the level here would silently unmute the provider.
       if (
+        !detail.muted &&
         !shouldPersistVolumeChange({
           nextVolume: detail.volume,
           nextMuted: detail.muted,
@@ -57,6 +60,16 @@ export function createVolumeChangeHandler(deps: VolumeChangeDeps) {
       }
 
       handleVolumeChange({ ...detail, mediaReady, volumeSettling })
+
+      // Providers (notably YouTube over postMessage) can echo delayed volume
+      // state that disagrees with the store — e.g. a stale muted:true after a
+      // genuine unmute, or vice versa. Converge the provider to the reported
+      // state so UI and output can never disagree; a converged write is a
+      // no-op, so this cannot loop.
+      const player = playerRef.current
+      if (player && player.muted !== detail.muted) {
+        player.muted = detail.muted
+      }
     },
   }
 }
