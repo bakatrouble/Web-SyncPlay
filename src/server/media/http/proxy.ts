@@ -13,6 +13,7 @@ import {
   getOrComputeHlsRewrite,
   peekHlsRewriteCache,
 } from "@/server/media/hls-rewrite-cache"
+import { fetchUpstream } from "@/server/media/http/upstream-fetch"
 import { MEDIA_FETCH_UA } from "@/server/media/media-ua"
 import {
   getProxyTokenPayload,
@@ -138,6 +139,9 @@ function passthroughHeaders(response: Response, range: string | null) {
     range ? "private, no-store" : "private, max-age=60, no-transform",
   )
   headers.set("accept-ranges", response.headers.get("accept-ranges") ?? "bytes")
+  // Text tracks (<track src>) load CORS-gated: without this the browser
+  // rejects even a successful relay and the player drops the track.
+  headers.set("access-control-allow-origin", "*")
   for (const key of [
     "content-length",
     "content-range",
@@ -182,7 +186,9 @@ export async function handleMediaProxyGet(
   }
 
   let target = payload.url
-  let response = await fetch(target, {
+  // Upstream fetch honors proxy env (direct WAN may be impaired) — see
+  // upstream-fetch. Same for the redirect re-fetch and HEAD below.
+  let response = await fetchUpstream(target, {
     headers: buildUpstreamHeaders(request, payload),
     redirect: "manual",
   })
@@ -198,7 +204,7 @@ export async function handleMediaProxyGet(
       return NextResponse.json({ error: "Forbidden redirect" }, { status: 403 })
     }
     target = redirected
-    response = await fetch(target, {
+    response = await fetchUpstream(target, {
       headers: buildUpstreamHeaders(request, payload),
       redirect: "manual",
     })
@@ -267,7 +273,7 @@ export async function handleMediaProxyHead(
   if (!access.ok) return access.response
   const { payload } = access
 
-  const response = await fetch(payload.url, {
+  const response = await fetchUpstream(payload.url, {
     method: "HEAD",
     headers: buildUpstreamHeaders(request, payload),
     redirect: "manual",

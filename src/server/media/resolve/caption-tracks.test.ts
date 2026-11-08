@@ -143,4 +143,49 @@ describe("resolveCaptionTracks", () => {
 
     expect(tracks?.length).toBe(MEDIA_TEXT_TRACK_CATALOG_LIMIT)
   })
+
+  test("orders English first and defaults to it", async () => {
+    mockDeps({
+      extractOk: true,
+      tracks: [
+        track({ id: "ab-1", src: "https://yt.example/ab", language: "ab" }),
+        track({ id: "de-2", src: "https://yt.example/de", language: "de" }),
+        track({
+          id: "en-gb-3",
+          src: "https://yt.example/en-GB",
+          language: "en-GB",
+        }),
+        track({ id: "en-4", src: "https://yt.example/en", language: "en" }),
+      ],
+    })
+
+    const { resolveCaptionTracks } = await import("./caption-tracks")
+    const tracks = await resolveCaptionTracks({ url: "https://youtu.be/x" })
+
+    expect(tracks?.map((entry) => entry.id)).toEqual([
+      "en-4",
+      "en-gb-3",
+      "ab-1",
+      "de-2",
+    ])
+    expect(tracks?.[0]?.isDefault).toBe(true)
+    expect(tracks?.slice(1).every((entry) => entry.isDefault === false)).toBe(
+      true,
+    )
+  })
+})
+
+describe("orderCaptionCandidates", () => {
+  test("exact English first, regional second, dump order otherwise", async () => {
+    const { orderCaptionCandidates } = await import("./caption-tracks")
+    const ids = orderCaptionCandidates([
+      { language: "de" },
+      { language: "en-US" },
+      { language: "ab" },
+      { language: "en" },
+      { language: undefined },
+    ]).map((entry) => entry.language)
+
+    expect(ids).toEqual(["en", "en-US", "de", "ab", undefined])
+  })
 })

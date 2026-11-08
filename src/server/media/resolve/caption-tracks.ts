@@ -7,14 +7,41 @@ function isRemoteHttpUrl(url: string): boolean {
   return /^https?:\/\//i.test(url)
 }
 
+function isEnglishTrack(track: { language?: string }): boolean {
+  const lang = track.language?.trim().toLowerCase() ?? ""
+  return lang === "en" || lang.startsWith("en-") || lang.startsWith("en_")
+}
+
+/**
+ * Order caption candidates before the catalog cap: English first (exact,
+ * then regional variants), dump order otherwise. Auto-caption dumps list
+ * 100+ languages alphabetically, so without this the cap keeps Abkhazian
+ * through Bulgarian and drops the track anyone will actually enable.
+ * Exported for tests.
+ */
+export function orderCaptionCandidates<T extends { language?: string }>(
+  tracks: T[],
+): T[] {
+  return [...tracks].sort((a, b) => {
+    const rank = (track: { language?: string }) =>
+      track.language?.trim().toLowerCase() === "en"
+        ? 0
+        : isEnglishTrack(track)
+          ? 1
+          : 2
+    return rank(a) - rank(b)
+  })
+}
+
 /**
  * Caption enrichment for URLs that took the native fast path (YouTube/Vimeo
  * play without yt-dlp, so their catalogs carry no caption tracks).
  *
  * Runs a full yt-dlp extract, keeps the parsed caption tracks (same merge +
- * VTT preference + catalog cap as the normal path), and relays each track
- * URL through the media proxy so browsers can load them (timedtext hosts
- * do not send CORS headers). Playback is untouched — tracks only.
+ * VTT preference as the normal path, English-first, then the catalog cap),
+ * and relays each track URL through the media proxy so browsers can load
+ * them (timedtext hosts do not send CORS headers). Playback is untouched —
+ * tracks only.
  *
  * Returns null when the extract fails or yields nothing usable. Per-track
  * relay failures are skipped, never fatal.
@@ -37,7 +64,7 @@ export async function resolveCaptionTracks(input: {
   }
 
   const relayed: PlaylistTextTrack[] = []
-  for (const track of resolved.textTracks.slice(
+  for (const track of orderCaptionCandidates(resolved.textTracks).slice(
     0,
     MEDIA_TEXT_TRACK_CATALOG_LIMIT,
   )) {
@@ -48,5 +75,10 @@ export async function resolveCaptionTracks(input: {
       continue
     }
   }
-  return relayed.length > 0 ? relayed : null
+  if (relayed.length === 0) return null
+  // Deterministic default: the first surviving track (English when present).
+  return relayed.map((track, index) => ({
+    ...track,
+    isDefault: index === 0,
+  }))
 }
