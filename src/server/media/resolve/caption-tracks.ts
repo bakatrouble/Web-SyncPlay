@@ -1,4 +1,3 @@
-import { MEDIA_TEXT_TRACK_CATALOG_LIMIT } from "@/contracts/types"
 import type { PlaylistTextTrack } from "@/contracts/types"
 import { resolveWithYtDlp } from "@/server/media/providers/yt-dlp-provider"
 import { createProxyUrl, PROXY_DEFAULT_UA } from "@/server/media/proxy-token"
@@ -64,10 +63,11 @@ export async function resolveCaptionTracks(input: {
   }
 
   const relayed: PlaylistTextTrack[] = []
-  for (const track of orderCaptionCandidates(resolved.textTracks).slice(
-    0,
-    MEDIA_TEXT_TRACK_CATALOG_LIMIT,
-  )) {
+  // Deliberately uncapped: auto-caption dumps list 100+ languages and the
+  // cap used to keep Abkhazian-through-Bulgarian while dropping English.
+  // Tokens are minted lazily per track but cheap (a few Valkey writes each);
+  // browsers only fetch the enabled track, so there is no fetch storm.
+  for (const track of orderCaptionCandidates(resolved.textTracks)) {
     if (!isRemoteHttpUrl(track.src)) continue
     try {
       relayed.push({ ...track, src: await createProxyUrl(track.src, meta) })

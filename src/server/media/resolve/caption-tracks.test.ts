@@ -129,19 +129,26 @@ describe("resolveCaptionTracks", () => {
     expect(await resolveCaptionTracks({ url: "https://youtu.be/x" })).toBeNull()
   })
 
-  test("caps relayed tracks at the catalog limit", async () => {
+  test("relays the full list uncapped, English first", async () => {
     mockDeps({
       extractOk: true,
-      tracks: Array.from({ length: 25 }, (_, index) =>
-        track({ id: `t-${index + 1}`, src: `https://yt.example/${index + 1}` }),
-      ),
+      tracks: [
+        ...Array.from({ length: 25 }, (_, index) =>
+          track({
+            id: `t-${index + 1}`,
+            src: `https://yt.example/${index + 1}`,
+          }),
+        ),
+        track({ id: "en-x", src: "https://yt.example/en", language: "en" }),
+      ],
     })
 
     const { resolveCaptionTracks } = await import("./caption-tracks")
-    const { MEDIA_TEXT_TRACK_CATALOG_LIMIT } = await import("@/contracts/types")
     const tracks = await resolveCaptionTracks({ url: "https://youtu.be/x" })
 
-    expect(tracks?.length).toBe(MEDIA_TEXT_TRACK_CATALOG_LIMIT)
+    expect(tracks?.length).toBe(26)
+    expect(tracks?.[0]?.id).toBe("en-x")
+    expect(tracks?.[0]?.isDefault).toBe(true)
   })
 
   test("orders English first and defaults to it", async () => {
