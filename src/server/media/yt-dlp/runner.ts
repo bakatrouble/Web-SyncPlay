@@ -35,12 +35,24 @@ export type YtDlpRunResult = {
 }
 
 /**
+ * JS runtime for yt-dlp's JS challenges (EJS signature solving). Node ships
+ * in the image; without an explicit runtime yt-dlp falls back to whatever
+ * interpreter it finds (or none), which breaks YouTube extracts.
+ */
+const YTDLP_JS_RUNTIME_ARGS = ["--js-runtimes", "node"] as const
+
+export function withJsRuntime(args: string[]): string[] {
+  if (args.includes("--js-runtimes")) return args
+  return [...YTDLP_JS_RUNTIME_ARGS, ...args]
+}
+
+/**
  * Runs yt-dlp with bounded concurrency across the process.
  */
 export async function runYtDlp(args: string[]): Promise<YtDlpRunResult> {
   await acquireSlot()
   try {
-    return await runYtDlpInner(args)
+    return await runYtDlpInner(withJsRuntime(args))
   } finally {
     releaseSlot()
   }
