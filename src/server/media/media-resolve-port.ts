@@ -1,4 +1,6 @@
+import type { PlaylistTextTrack } from "@/contracts/types"
 import { type ResolvedMedia, resolveMediaSource } from "@/server/media/resolve"
+import { resolveCaptionTracks } from "@/server/media/resolve/caption-tracks"
 import { invalidateYtDlpExtractCache } from "@/server/media/yt-dlp"
 import { beginResolveLease } from "@/server/media/yt-dlp/resolve-lease"
 
@@ -29,6 +31,17 @@ export interface MediaResolvePort {
   }): Promise<{ stop: () => void } | null>
 
   invalidateYtDlpExtractCache(url: string): Promise<void>
+
+  /**
+   * Caption-only enrichment for native fast-path items (YouTube/Vimeo resolve
+   * without yt-dlp, so their catalogs carry no tracks). Returns relayed
+   * tracks or null when the extract fails / yields nothing usable.
+   */
+  resolveCaptionTracks(input: {
+    url: string
+    roomId?: string
+    mediaId?: string
+  }): Promise<PlaylistTextTrack[] | null>
 }
 
 /** Production adapter — process-local wrappers around media resolve modules. */
@@ -37,5 +50,6 @@ export function createMediaResolvePort(): MediaResolvePort {
     resolveMediaSource,
     beginResolveLease,
     invalidateYtDlpExtractCache,
+    resolveCaptionTracks,
   }
 }

@@ -148,6 +148,9 @@ describe("RoomPublishPort / MediaMaintenancePort / MediaResolvePort wiring", () 
       async beginResolveLease() {
         return null
       },
+      async resolveCaptionTracks() {
+        return null
+      },
       async invalidateYtDlpExtractCache() {},
     }
 
