@@ -185,7 +185,8 @@ export function createPlaybackLifecycleHandlers(deps: PlaybackLifecycleDeps) {
           : pending
       // Providers may reset volume on load; re-apply preferred level *before*
       // flipping mediaReady so a synchronous volumechange(1) cannot persist.
-      if (Math.abs(player.volume - preferredVolume) > 0.001) {
+      // Never while muted: Vidstack unmutes on any volume write > 0.
+      if (!isMuted && Math.abs(player.volume - preferredVolume) > 0.001) {
         player.volume = preferredVolume
       }
       if (player.muted !== isMuted) {

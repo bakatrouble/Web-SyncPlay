@@ -61,7 +61,10 @@ export function usePlayerChromeUi(config: {
     if (!player) {
       return
     }
-    if (Math.abs(player.volume - preferredVolume) > 0.001) {
+    // Re-assert preference after remounts/source changes — but never while
+    // muted: Vidstack unmutes on any volume write > 0. Mute itself is
+    // re-asserted below so a diverged provider converges back to silence.
+    if (!isMuted && Math.abs(player.volume - preferredVolume) > 0.001) {
       // eslint-disable-next-line react-hooks/immutability -- media element API
       player.volume = preferredVolume
     }

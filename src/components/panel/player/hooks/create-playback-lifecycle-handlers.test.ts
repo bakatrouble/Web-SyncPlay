@@ -13,6 +13,7 @@ function createDeps(config: {
   roomPaused: boolean
   player?: { volume: number; muted: boolean; paused?: boolean }
   preferredVolume?: number
+  isMuted?: boolean
   isMediaReadyRef?: { current: boolean }
   applyRoomClock?: ReturnType<typeof mock>
   nowMs?: () => number
@@ -41,7 +42,7 @@ function createDeps(config: {
     playerRef: { current: (config.player as never) ?? null },
     current: undefined,
     canControlPlayback: true,
-    isMuted: false,
+    isMuted: config.isMuted ?? false,
     preferredVolume: config.preferredVolume ?? 1,
     playbackRef: {
       current: { ...createRoomState().playback, paused: config.roomPaused },
@@ -158,6 +159,23 @@ describe("createPlaybackLifecycleHandlers onCanPlay volume", () => {
     expect(readyWhenVolumeSet).toBe(false)
     expect(isMediaReadyRef.current).toBe(true)
     expect(isVolumeSettling(isMediaReadyRef)).toBe(true)
+  })
+
+  test("skips volume write while muted but re-asserts mute", () => {
+    const player = { volume: 1, muted: false, paused: true }
+    const { handlers } = createDeps({
+      roomPaused: true,
+      player,
+      preferredVolume: 0.4,
+      isMuted: true,
+    })
+
+    handlers.onCanPlay()
+
+    // Writing 0.4 here would unmute at Vidstack core; the provider keeps its
+    // level and converges back to the muted truth instead.
+    expect(player.volume).toBe(1)
+    expect(player.muted).toBe(true)
   })
 })
 

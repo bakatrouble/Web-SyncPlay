@@ -98,4 +98,69 @@ describe("createVolumeChangeHandler", () => {
     expect(player.muted).toBe(false)
     expect(handleVolumeChange).not.toHaveBeenCalled()
   })
+
+  test("re-mutes a diverged provider on a muted echo", () => {
+    const handleVolumeChange = mock(() => {})
+    // Provider drifted unmuted (e.g. delayed YouTube echo) while the room
+    // truth is muted: converge back to silence, keep the reported state.
+    const player = { volume: 0.4, muted: false }
+    const handlers = createVolumeChangeHandler({
+      playerRef: { current: player as never },
+      isMuted: true,
+      preferredVolume: 0.4,
+      unmute: () => 0.4,
+      handleVolumeChange,
+      isMediaReadyRef: { current: true },
+    })
+
+    handlers.onVolumeChange({ volume: 0.4, muted: true })
+
+    expect(handleVolumeChange).toHaveBeenCalledWith({
+      volume: 0.4,
+      muted: true,
+      mediaReady: true,
+      volumeSettling: false,
+    })
+    expect(player.muted).toBe(true)
+  })
+
+  test("leaves a converged muted provider alone", () => {
+    const handleVolumeChange = mock(() => {})
+    const player = { volume: 0.4, muted: true }
+    const handlers = createVolumeChangeHandler({
+      playerRef: { current: player as never },
+      isMuted: true,
+      preferredVolume: 0.4,
+      unmute: () => 0.4,
+      handleVolumeChange,
+      isMediaReadyRef: { current: true },
+    })
+
+    handlers.onVolumeChange({ volume: 0.4, muted: true })
+
+    expect(handleVolumeChange).toHaveBeenCalledTimes(1)
+    expect(player.muted).toBe(true)
+    expect(player.volume).toBe(0.4)
+  })
+
+  test("does not rewrite volume while muted", () => {
+    const handleVolumeChange = mock(() => {})
+    // Writing any level > 0 unmutes at Vidstack core — the re-assert must
+    // stay out of the way until unmute.
+    const player = { volume: 1, muted: true }
+    const handlers = createVolumeChangeHandler({
+      playerRef: { current: player as never },
+      isMuted: true,
+      preferredVolume: 0.4,
+      unmute: () => 0.4,
+      handleVolumeChange,
+      isMediaReadyRef: { current: true },
+    })
+
+    handlers.onVolumeChange({ volume: 1, muted: true })
+
+    expect(handleVolumeChange).toHaveBeenCalledTimes(1)
+    expect(player.volume).toBe(1)
+    expect(player.muted).toBe(true)
+  })
 })
