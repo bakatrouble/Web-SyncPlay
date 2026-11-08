@@ -24,7 +24,8 @@ RUN bun install --frozen-lockfile --ignore-scripts --linker=hoisted
 COPY . .
 RUN SKIP_ENV_VALIDATION=true bun run build \
     && mkdir -p /opt/runtime-deps \
-    && cp -aL node_modules/ws /opt/runtime-deps/ws
+    && cp -aL node_modules/ws /opt/runtime-deps/ws \
+    && cp -aL node_modules/undici /opt/runtime-deps/undici
 
 # Install mediasoup on glibc Node. Prefer official prebuilt workers (no compilers).
 # Use a committed lockfile so npm ci pins by integrity hash (OpenSSF Scorecard).
@@ -150,6 +151,11 @@ COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 # omit it from standalone; copy a dereferenced tree so /api/ws resolves at runtime.
 COPY --from=builder --chown=node:node /opt/runtime-deps/ws ./node_modules/ws
 RUN test -f node_modules/ws/package.json && node -e "require('ws')"
+
+# undici is left external the same way (Node-adjacent fetch stack); copy a
+# dereferenced tree so the media proxy's ProxyAgent resolves at runtime.
+COPY --from=builder --chown=node:node /opt/runtime-deps/undici ./node_modules/undici
+RUN test -f node_modules/undici/package.json && node -e "require('undici')"
 
 # Merge glibc mediasoup (+ its deps) into the standalone node_modules tree.
 COPY --from=mediasoup --chown=node:node /opt/mediasoup/node_modules/. ./node_modules/
