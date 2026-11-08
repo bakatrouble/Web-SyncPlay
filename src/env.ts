@@ -67,6 +67,11 @@ export const env = createEnv({
       .min(1000)
       .max(120_000)
       .default(30_000),
+    // Opt-in background caption enrichment for native-provider URLs
+    // (YouTube/Vimeo take a yt-dlp-free fast path, so their rooms would
+    // otherwise never get caption tracks). Off by default: each enrichment
+    // spawns yt-dlp against Google/Vimeo, which block datacenter IPs.
+    YOUTUBE_CAPTION_ENRICH: z.enum(["true", "false"]).default("false"),
     FALLBACK_DEFAULT_MEDIA_URL: z.url().default("https://youtu.be/uD4izuDMUQA"),
     ROOM_PARTICIPANTS_LIMIT: z.coerce
       .number()
@@ -122,6 +127,7 @@ export const env = createEnv({
     YTDLP_BIN: process.env.YTDLP_BIN,
     YTDLP_MAX_CONCURRENT: process.env.YTDLP_MAX_CONCURRENT,
     YTDLP_TIMEOUT_MS: process.env.YTDLP_TIMEOUT_MS,
+    YOUTUBE_CAPTION_ENRICH: process.env.YOUTUBE_CAPTION_ENRICH,
     FALLBACK_DEFAULT_MEDIA_URL: process.env.FALLBACK_DEFAULT_MEDIA_URL,
     ROOM_PARTICIPANTS_LIMIT: process.env.ROOM_PARTICIPANTS_LIMIT,
     ROOM_ACTION_LOG_LIMIT: process.env.ROOM_ACTION_LOG_LIMIT,

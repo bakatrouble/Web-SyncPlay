@@ -209,20 +209,21 @@ Set **both** on every `web` replica for sticky local-media HTTP affinity (miss p
 
 ### Optional
 
-| Variable                     | Default                        | Description                                                                          |
-| ---------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
-| `NODE_ENV`                   | `production`                   | `development` \| `test` \| `production`. Compose forces `production`.                |
-| `YTDLP_BIN`                  | `yt-dlp`                       | yt-dlp binary (installed in the Docker image).                                       |
-| `YTDLP_MAX_CONCURRENT`       | `2`                            | Max concurrent extracts per process.                                                 |
-| `YTDLP_TIMEOUT_MS`           | `30000`                        | Extract timeout (1s–120s). Also drives lock heartbeat / reclaim intervals.           |
-| `FALLBACK_DEFAULT_MEDIA_URL` | `https://youtu.be/uD4izuDMUQA` | Seed media when daily defaults cache is empty.                                       |
-| `ROOM_PARTICIPANTS_LIMIT`    | `100`                          | Max participants per room (1–100).                                                   |
-| `ROOM_PLAYLIST_LIMIT`        | `50`                           | Max playlist items per room (1–200).                                                 |
-| `ROOM_ACTION_LOG_LIMIT`      | `500`                          | Max action-log entries retained (1–1000).                                            |
-| `PROXY_ALLOW_PRIVATE_URLS`   | `false`                        | Allow proxying private/LAN URLs. Always forced `false` in production.                |
-| `EMBED_FRAME_ANCESTORS`      | unset                          | Space-separated absolute origins (or `*`) allowed to iframe this app. Default: none. |
-| `NEXT_TELEMETRY_DISABLED`    | `1` (true)                     | Next.js telemetry off by default. Set `0` only to opt in.                            |
-| `SKIP_ENV_VALIDATION`        | unset                          | Set truthy to skip env schema validation (e.g. image build).                         |
+| Variable                     | Default                        | Description                                                                                                                       |
+| ---------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                   | `production`                   | `development` \| `test` \| `production`. Compose forces `production`.                                                             |
+| `YTDLP_BIN`                  | `yt-dlp`                       | yt-dlp binary (installed in the Docker image).                                                                                    |
+| `YTDLP_MAX_CONCURRENT`       | `2`                            | Max concurrent extracts per process.                                                                                              |
+| `YTDLP_TIMEOUT_MS`           | `30000`                        | Extract timeout (1s–120s). Also drives lock heartbeat / reclaim intervals.                                                        |
+| `FALLBACK_DEFAULT_MEDIA_URL` | `https://youtu.be/uD4izuDMUQA` | Seed media when daily defaults cache is empty.                                                                                    |
+| `YOUTUBE_CAPTION_ENRICH`     | `false`                        | Background caption tracks for native-provider (YouTube/Vimeo) rooms. Off by default: each run spawns yt-dlp against Google/Vimeo. |
+| `ROOM_PARTICIPANTS_LIMIT`    | `100`                          | Max participants per room (1–100).                                                                                                |
+| `ROOM_PLAYLIST_LIMIT`        | `50`                           | Max playlist items per room (1–200).                                                                                              |
+| `ROOM_ACTION_LOG_LIMIT`      | `500`                          | Max action-log entries retained (1–1000).                                                                                         |
+| `PROXY_ALLOW_PRIVATE_URLS`   | `false`                        | Allow proxying private/LAN URLs. Always forced `false` in production.                                                             |
+| `EMBED_FRAME_ANCESTORS`      | unset                          | Space-separated absolute origins (or `*`) allowed to iframe this app. Default: none.                                              |
+| `NEXT_TELEMETRY_DISABLED`    | `1` (true)                     | Next.js telemetry off by default. Set `0` only to opt in.                                                                         |
+| `SKIP_ENV_VALIDATION`        | unset                          | Set truthy to skip env schema validation (e.g. image build).                                                                      |
 
 ## Using the app
 

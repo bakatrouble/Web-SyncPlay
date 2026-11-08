@@ -1,4 +1,5 @@
 import type { PlaylistItem, RoomState } from "@/contracts/types"
+import { env } from "@/env"
 import type { ResolvedMedia } from "@/server/media/media-resolve-port"
 import { getMediaResolvePort, type RoomStateStorePort } from "@/server/ports"
 import { getRoomBroadcastBus } from "@/server/realtime/broadcast/room-broadcast-bus"
@@ -7,6 +8,9 @@ import { sanitizeMediaTitle } from "@/shared/sanitize-display"
 
 /** Process-local dedupe so multi-kick of the same item does not pile up yt-dlp work. */
 const inflightPlaylistResolves = new Set<string>()
+
+/** Separate dedupe for caption enrichment (runs after resolve settled). */
+const inflightCaptionEnriches = new Set<string>()
 
 function resolveKey(roomId: string, itemId: string) {
   return `${roomId}:${itemId}`
@@ -91,6 +95,61 @@ async function commitResolvingItem(
 }
 
 /**
+ * Background caption enrichment for items that resolved without tracks
+ * (native-provider fast path: YouTube/Vimeo play without yt-dlp).
+ *
+ * Opt-in via YOUTUBE_CAPTION_ENRICH (default off — each run spawns yt-dlp
+ * against Google/Vimeo). Playback is untouched; on success the item's
+ * textTracks/defaultTextTrackId are written back and the room re-published.
+ * Never throws — failures are silent by design.
+ */
+export async function enrichPlaylistItemCaptions(params: {
+  store: RoomStateStorePort
+  roomId: string
+  itemId: string
+  sourceUrl: string
+  /** Override for the YOUTUBE_CAPTION_ENRICH gate (tests/ops). Default: env flag. */
+  captionEnrich?: boolean
+}): Promise<boolean> {
+  const { store, roomId, itemId, sourceUrl } = params
+  const enabled = params.captionEnrich ?? env.YOUTUBE_CAPTION_ENRICH === "true"
+  if (!enabled) return false
+  const key = resolveKey(roomId, itemId)
+  if (inflightCaptionEnriches.has(key)) return false
+  inflightCaptionEnriches.add(key)
+  try {
+    const media = getMediaResolvePort()
+    const tracks = await media.resolveCaptionTracks({
+      url: sourceUrl,
+      roomId,
+      mediaId: itemId,
+    })
+    if (!tracks || tracks.length === 0) return false
+    const defaultTextTrackId =
+      tracks.find((track) => track.isDefault)?.id ?? tracks[0]?.id
+    const written = await store.updateRoom(roomId, async (state) => {
+      if (!state) return null
+      const item = state.playlist.find((entry) => entry.id === itemId)
+      // Only enrich the same ready item that still lacks tracks — drop races
+      // with remove/retry/reresolve (which refills or resets the catalog).
+      if (!item || item.sourceUrl !== sourceUrl) return null
+      if (item.ingestStatus !== "ready") return null
+      if ((item.textTracks ?? []).length > 0) return null
+      item.textTracks = tracks
+      item.defaultTextTrackId = defaultTextTrackId
+      touchRoomStructural(state)
+      return state
+    })
+    if (written) publishRoomSnapshot(store, roomId)
+    return written !== null
+  } catch {
+    return false
+  } finally {
+    inflightCaptionEnriches.delete(key)
+  }
+}
+
+/**
  * Resolve a remote playlist item that is already persisted as `resolving`.
  * Safe to call after the room write that enqueued the item.
  */
@@ -156,6 +215,12 @@ export async function resolvePlaylistItem(params: {
       },
       { retryUntilPresent },
     )
+
+    // Native fast-path items resolve with no tracks; enrich captions in the
+    // background (env-gated, no-op when off). Detached — never blocks settle.
+    if (resolved.textTracks.length === 0) {
+      void enrichPlaylistItemCaptions({ store, roomId, itemId, sourceUrl })
+    }
   } catch {
     await commitResolvingItem(
       store,
